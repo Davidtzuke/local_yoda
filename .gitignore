@@ -10,7 +10,21 @@ Thumbs.db
 # Dependencies
 node_modules/
 venv/
+.venv/
 __pycache__/
+*.pyc
+
+# Build
+*.egg-info/
+dist/
+build/
+
+# Yoda data
+.yoda/
+
+# Environment
+.env
+.env.local
 
 # Orcha internal files
 .orcha/
