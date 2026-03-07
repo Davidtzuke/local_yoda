@@ -82,3 +82,44 @@
   - `async clear_memory() -> None`
 - Run with: `asyncio.run(run_cli(agent, stream=True))`
 - Or use `main()` for standalone testing with StubAgent
+
+---
+
+# Integration Agent Progress
+
+## Checklist
+
+- [x] Create project root files: `pyproject.toml`, `README.md`, `yoda/__init__.py`
+- [x] Create `yoda/agent/core.py` — YodaAgent implementing both CLI and Web protocols
+- [x] Create `yoda/agent/memory.py` — persistent JSON-backed conversation memory
+- [x] Create `yoda/agent/tools/filesystem.py` — sandboxed read, write, list files
+- [x] Create `yoda/agent/tools/websearch.py` — DuckDuckGo web search
+- [x] Create `yoda/agent/tools/__init__.py` — tool registry with auto-registration
+- [x] Wire agent core into CLI (`yoda/cli/main.py`) via `run_cli(agent)`
+- [x] Wire agent core into Web UI (`yoda/web/app.py`) via `create_app(agent)`
+- [x] Create entry point: `yoda/main.py` with argparse for cli/web mode selection
+- [x] Create `.env.example`, `Dockerfile`, `docker-compose.yml`
+- [x] Ensure all async patterns are consistent across the codebase
+
+## Agent Updates
+
+- Created `yoda/agent/core.py` — unified `YodaAgent` implementing:
+  - CLI `AgentProtocol` (send_message, stream_message, get_tools, get_memory, clear_memory)
+  - Web `AgentProtocol` (stream with conversation_id)
+  - Pluggable LLM backends: local (rule-based, no API), OpenAI, Ollama
+  - Tool call parsing from LLM responses via [TOOL_CALL] pattern
+  - Natural language tool dispatch in local mode
+- Created `yoda/agent/memory.py` — `ConversationMemory` with:
+  - JSON file persistence in `~/.yoda/memory/`
+  - Per-conversation storage keyed by ID
+  - In-memory cache with lazy loading
+- Created `yoda/agent/tools/` — tool registry + built-in tools:
+  - `ToolRegistry` with register/execute/list_all
+  - `filesystem.py`: read_file, write_file, list_files (sandboxed to ~/.yoda/sandbox/)
+  - `websearch.py`: DuckDuckGo Instant Answer API (no API key needed)
+- Created `yoda/main.py` — CLI entry point with argparse:
+  - `yoda cli` / `yoda web` mode selection
+  - `--backend`, `--host`, `--port`, `--no-stream` flags
+- Created `pyproject.toml` with hatchling, optional deps [openai], [ollama], [dev]
+- Created `Dockerfile` + `docker-compose.yml` for containerized deployment
+- Created `.env.example` with all configuration variables documented
