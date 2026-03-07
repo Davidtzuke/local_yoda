@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.backends"
+
+[project]
+name = "yoda"
+version = "0.1.0"
+description = "Yoda — Local personal AI agent with memory, tools, CLI and web UI"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "rich>=13.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+]
+
+[project.optional-dependencies]
+openai = ["httpx>=0.27"]
+ollama = ["httpx>=0.27"]
+all = ["httpx>=0.27"]
+dev = [
+    "httpx>=0.27",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.3",
+]
+
+[project.scripts]
+yoda = "yoda.main:main"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

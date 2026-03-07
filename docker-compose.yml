@@ -1,0 +1,13 @@
+services:
+  yoda:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - yoda-data:/root/.yoda
+    restart: unless-stopped
+
+volumes:
+  yoda-data:
