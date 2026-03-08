@@ -73,7 +73,67 @@
 
 ---
 
-## RAG & Infinite Memory — ⏳ PENDING
+## RAG & Infinite Memory — ✅ COMPLETE
+
+**Status**: Done
+**Branch**: main
+
+### Delivered
+
+- [x] **yoda/memory/vector_store.py** — Dual-backend vector storage:
+  - Abstract `VectorStore` interface
+  - `ChromaVectorStore` — ChromaDB with persistent storage, cosine similarity
+  - `FAISSVectorStore` — FAISS with JSON sidecar metadata, normalized inner product
+  - 4 collections: episodic, semantic, procedural, preferences
+  - Factory function `create_vector_store()`
+
+- [x] **yoda/memory/embeddings.py** — Embedding pipeline:
+  - `SentenceTransformerEmbedder` — local embeddings (all-MiniLM-L6-v2 default, 384d)
+  - `OpenAIEmbedder` — API embeddings (text-embedding-3-small, etc.)
+  - `CachedEmbedder` — disk-based embedding cache with LRU eviction
+  - Batch processing, factory `create_embedder()`
+
+- [x] **yoda/memory/chunking.py** — Multi-strategy chunking:
+  - `FixedSizeChunker` — overlap + sentence-boundary aware
+  - `SemanticChunker` — embedding-similarity breakpoints
+  - `HierarchicalChunker` — 3-level (summary → section → paragraph)
+  - `CodeAwareChunker` — Python function/class boundary aware
+  - Factory `create_chunker()`
+
+- [x] **yoda/memory/retrieval.py** — Hybrid retrieval pipeline:
+  - `BM25Retriever` — Okapi BM25 sparse retrieval
+  - `mmr_rerank()` — Maximal Marginal Relevance for diversity
+  - `ContextualCompressor` — sentence-level relevance filtering
+  - `ScoreReranker` — multi-signal fusion (vector + BM25 + recency + importance)
+  - `RetrievalPipeline` — dense → sparse → rerank → MMR → compress
+  - HyDE (Hypothetical Document Embeddings) support
+
+- [x] **yoda/memory/manager.py** — Memory lifecycle manager:
+  - Ingest (chunk → embed → store), hybrid search
+  - Auto fact extraction from conversations (preferences, facts, procedures)
+  - Importance scoring, forgetting curve, consolidation/pruning
+  - Context injector for Agent integration
+  - Export/import/backup
+
+- [x] **yoda/memory/persistence.py** — SQLite metadata store:
+  - Metadata with importance, decay rate, access tracking
+  - Memory relations, consolidation logging, forgetting curve queries
+  - Export/import JSON, database backup
+
+- [x] **yoda/memory/plugin.py** — Plugin integration:
+  - Tools: memory_store, memory_search, memory_recall, memory_forget, memory_stats
+  - Auto fact extraction via on_user_message hook
+  - Context injection via get_context_injector()
+
+- [x] **pyproject.toml** — Added: chromadb, sentence-transformers, numpy, faiss-cpu (optional)
+
+### Interfaces for Downstream
+
+**Integration Architect**:
+- `MemoryPlugin` is a drop-in Plugin subclass for `PluginRegistry`
+- `MemoryManager.get_context_injector()` → `agent.add_context_injector()`
+- Config: `YodaConfig.memory` (backend, persist_dir, embedding_model, top_k, chunk_size, chunk_overlap)
+- All async-first, export/import via manager methods
 
 ## Knowledge Graph Builder — ⏳ PENDING
 

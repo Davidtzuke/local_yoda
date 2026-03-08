@@ -20,6 +20,9 @@ dependencies = [
     "openai>=1.50,<2",
     "rich>=13.7,<14",
     "click>=8.1,<9",
+    "chromadb>=0.5,<1",
+    "sentence-transformers>=3.0,<4",
+    "numpy>=1.26,<3",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +34,9 @@ dev = [
 ]
 local = [
     "ollama>=0.4,<1",
+]
+faiss = [
+    "faiss-cpu>=1.8,<2",
 ]
 
 [project.scripts]
