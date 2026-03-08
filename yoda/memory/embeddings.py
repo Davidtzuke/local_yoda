@@ -82,6 +82,52 @@ class SentenceTransformerEmbedder(EmbeddingProvider):
         return all_embeddings
 
 
+class HashEmbedder(EmbeddingProvider):
+    """Lightweight fallback embedder using random projections from text hashes.
+
+    Not as good as a real model but avoids bus errors from torch/sentence-transformers
+    on platforms where those libraries are broken. Cosine similarity still works
+    reasonably for keyword overlap.
+    """
+
+    _DIM = 384
+
+    @property
+    def dimension(self) -> int:
+        return self._DIM
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        import struct
+
+        results: list[list[float]] = []
+        for text in texts:
+            # Create a deterministic pseudo-random vector from text n-grams
+            vec = np.zeros(self._DIM, dtype=np.float32)
+            words = text.lower().split()
+            # Use character 3-grams and word unigrams/bigrams
+            tokens: list[str] = []
+            tokens.extend(words)
+            for i in range(len(words) - 1):
+                tokens.append(f"{words[i]} {words[i+1]}")
+            for w in words:
+                for j in range(len(w) - 2):
+                    tokens.append(w[j:j+3])
+
+            for token in tokens:
+                h = hashlib.sha256(token.encode()).digest()
+                for k in range(0, min(len(h), self._DIM * 4), 4):
+                    idx = int.from_bytes(h[k:k+2], 'little') % self._DIM
+                    val = struct.unpack('h', h[k+2:k+4])[0] / 32768.0
+                    vec[idx] += val
+
+            # Normalize to unit vector
+            norm = np.linalg.norm(vec)
+            if norm > 0:
+                vec = vec / norm
+            results.append(vec.tolist())
+        return results
+
+
 class OpenAIEmbedder(EmbeddingProvider):
     """OpenAI API embeddings (text-embedding-3-small, etc.)."""
 
@@ -211,10 +257,50 @@ def create_embedder(
     """
     if model.startswith("text-embedding-"):
         provider: EmbeddingProvider = OpenAIEmbedder(model=model, **kwargs)
+    elif model == "hash":
+        provider = HashEmbedder()
     else:
-        provider = SentenceTransformerEmbedder(model_name=model, **kwargs)
+        provider = _try_sentence_transformers(model, **kwargs)
 
     if use_cache:
         provider = CachedEmbedder(provider, cache_dir=cache_dir)
 
     return provider
+
+
+def _try_sentence_transformers(model: str, **kwargs: Any) -> EmbeddingProvider:
+    """Try to use sentence-transformers, with a cached subprocess probe to detect bus errors."""
+    probe_flag = Path("~/.yoda/.st_probe_ok").expanduser()
+    probe_fail = Path("~/.yoda/.st_probe_fail").expanduser()
+
+    # Use cached result if available
+    if probe_fail.exists():
+        logger.info("Skipping sentence-transformers (previously failed probe)")
+        return HashEmbedder()
+    if probe_flag.exists():
+        return SentenceTransformerEmbedder(model_name=model, **kwargs)
+
+    # Run probe in subprocess
+    logger.info("Probing sentence-transformers compatibility (first run only)...")
+    try:
+        import subprocess, sys
+        probe_flag.parent.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(
+            [sys.executable, "-c",
+             "from sentence_transformers import SentenceTransformer; "
+             "SentenceTransformer('all-MiniLM-L6-v2').encode(['test']); "
+             "print('ok')"],
+            capture_output=True, timeout=120,
+        )
+        if result.returncode == 0:
+            probe_flag.touch()
+            return SentenceTransformerEmbedder(model_name=model, **kwargs)
+    except Exception:
+        pass
+
+    probe_fail.touch()
+    logger.warning(
+        "sentence-transformers crashes on this platform (bus error). "
+        "Using hash embedder. To retry: rm ~/.yoda/.st_probe_fail"
+    )
+    return HashEmbedder()

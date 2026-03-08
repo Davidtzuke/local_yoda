@@ -159,4 +159,35 @@ def load_config(path: str | Path | None = None) -> YodaConfig:
             raw = yaml.safe_load(f) or {}
 
     raw = _apply_env_overrides(raw)
-    return YodaConfig.model_validate(raw)
+    config = YodaConfig.model_validate(raw)
+
+    # Auto-persist API key from environment if not already saved
+    if not config.provider.api_key:
+        env_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+        if env_key:
+            config.provider.api_key = env_key
+            provider_name = "openai" if os.environ.get("OPENAI_API_KEY") and not os.environ.get("ANTHROPIC_API_KEY") else "anthropic"
+            config.provider.name = provider_name
+            save_config(config)
+
+    return config
+
+
+def save_config(config: YodaConfig, path: str | Path | None = None) -> Path:
+    """Save configuration to ``~/.yoda/config.yaml`` (or explicit path).
+
+    Sensitive fields (api_key) are persisted so the user only needs to
+    ``export`` once.
+    """
+    if path:
+        out = Path(path).expanduser()
+    else:
+        out = Path.home() / ".yoda" / "config.yaml"
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    data = config.model_dump(exclude_defaults=False)
+    with open(out, "w") as f:
+        yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+
+    return out

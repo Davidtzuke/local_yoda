@@ -91,6 +91,7 @@ class YodaCLI:
         self.slash.register("status", self._cmd_status, "Show agent status and stats")
         self.slash.register("cost", self._cmd_cost, "Show token usage and cost report")
         self.slash.register("reset", self._cmd_reset, "Reset conversation history")
+        self.slash.register("setup", self._cmd_setup, "Set API key: /setup <api-key>")
         self.slash.register("claude", self._cmd_claude, "Generate CLAUDE.md from knowledge")
         self.slash.register("quit", self._cmd_quit, "Exit Yoda")
 
@@ -103,9 +104,7 @@ class YodaCLI:
 
         while self._running:
             try:
-                user_input = await asyncio.get_event_loop().run_in_executor(
-                    None, self._prompt_input
-                )
+                user_input = await self._async_input("\n🟢 You > ")
                 if not user_input:
                     continue
 
@@ -122,12 +121,24 @@ class YodaCLI:
 
         self.console.print("\n[yoda]May the Force be with you. ✨[/yoda]\n")
 
-    def _prompt_input(self) -> str:
-        """Blocking input prompt (run in executor)."""
-        try:
-            return input("\n🟢 You > ").strip()
-        except (KeyboardInterrupt, EOFError):
-            raise
+    async def _async_input(self, prompt: str) -> str:
+        """Read input that can be cancelled by Ctrl+C."""
+        import sys, select
+        sys.stdout.write(prompt)
+        sys.stdout.flush()
+
+        loop = asyncio.get_event_loop()
+        while self._running and not self.orchestrator.is_shutting_down:
+            # Poll stdin with a short timeout so we can check _running / catch signals
+            ready = await loop.run_in_executor(
+                None, lambda: select.select([sys.stdin], [], [], 0.3)[0]
+            )
+            if ready:
+                line = sys.stdin.readline()
+                if not line:
+                    raise EOFError
+                return line.strip()
+        raise EOFError
 
     # -- Chat with streaming -----------------------------------------------
 
@@ -139,33 +150,34 @@ class YodaCLI:
         accumulated = ""
 
         try:
-            async for chunk in agent.chat_stream(user_input):
-                accumulated += chunk.delta
-                # Render incrementally
+            try:
+                with Live(console=self.console, refresh_per_second=8) as live:
+                    async for chunk in agent.chat_stream(user_input):
+                        accumulated += chunk.delta
+                        live.update(Panel(
+                            Markdown(accumulated),
+                            title="[yoda]Yoda[/yoda]",
+                            border_style="green",
+                            padding=(0, 1),
+                        ))
+            except Exception:
+                # Fallback to non-streaming
+                logger.debug("Streaming failed, falling back to non-streaming")
+                response = await agent.chat(user_input)
+                accumulated = response.content
+                self.console.print(Panel(
+                    Markdown(accumulated),
+                    title="[yoda]Yoda[/yoda]",
+                    border_style="green",
+                    padding=(0, 1),
+                ))
+        except Exception as e:
+            self.console.print(f"[error]Chat failed: {e}[/error]")
+            if "api_key" in str(e).lower() or "auth" in str(e).lower():
                 self.console.print(
-                    Panel(
-                        Markdown(accumulated),
-                        title="[yoda]Yoda[/yoda]",
-                        border_style="green",
-                        padding=(0, 1),
-                    ),
-                    end="\r",
+                    "[warning]Set ANTHROPIC_API_KEY or configure a provider in ~/.yoda/config.yaml[/warning]"
                 )
-        except Exception:
-            # Fallback to non-streaming
-            logger.debug("Streaming failed, falling back to non-streaming")
-            response = await agent.chat(user_input)
-            accumulated = response.content
-
-        # Final render
-        self.console.print(
-            Panel(
-                Markdown(accumulated),
-                title="[yoda]Yoda[/yoda]",
-                border_style="green",
-                padding=(0, 1),
-            )
-        )
+            return
 
         # Show token usage inline
         usage = agent.usage_summary
@@ -286,6 +298,25 @@ class YodaCLI:
                     table.add_row(str(k), str(v))
         self.console.print(table)
 
+    async def _cmd_setup(self, args: str) -> None:
+        from yoda.core.config import save_config
+
+        if not args:
+            self.console.print("[warning]Usage: /setup <your-api-key>[/warning]")
+            self.console.print("[info]  Saves your API key to ~/.yoda/config.yaml so you never need to export it again.[/info]")
+            return
+
+        key = args.strip()
+        config = self.orchestrator.config
+        if key.startswith("sk-ant-"):
+            config.provider.name = "anthropic"
+        elif key.startswith("sk-"):
+            config.provider.name = "openai"
+        config.provider.api_key = key
+        path = save_config(config)
+        self.console.print(f"[success]✓ API key saved to {path}[/success]")
+        self.console.print("[info]  Restart Yoda to use the new key.[/info]")
+
     async def _cmd_reset(self, _args: str) -> None:
         self.orchestrator.agent.reset_conversation()
         self.console.print("[success]✓ Conversation history cleared.[/success]")
@@ -303,19 +334,36 @@ class YodaCLI:
     # -- UI helpers --------------------------------------------------------
 
     def _print_banner(self) -> None:
-        banner = Text()
-        banner.append("╭──────────────────────────────────╮\n", style="green")
-        banner.append("│  ", style="green")
-        banner.append("🧠 YODA", style="bold green")
-        banner.append(" — Personal AI Assistant  ", style="green")
-        banner.append("│\n", style="green")
-        banner.append("│  ", style="green")
-        banner.append("Infinite memory • Knowledge graph  ", style="dim")
-        banner.append("│\n", style="green")
-        banner.append("│  ", style="green")
-        banner.append("Type /help for commands            ", style="dim")
-        banner.append("│\n", style="green")
-        banner.append("╰──────────────────────────────────╯", style="green")
-        self.console.print(banner)
+        import time as _time
+
+        LOGO = [
+            "██╗   ██╗ ██████╗ ██████╗  █████╗ ",
+            "╚██╗ ██╔╝██╔═══██╗██╔══██╗██╔══██╗",
+            " ╚████╔╝ ██║   ██║██║  ██║███████║",
+            "  ╚██╔╝  ██║   ██║██║  ██║██╔══██║",
+            "   ██║   ╚██████╔╝██████╔╝██║  ██║",
+            "   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝  ╚═╝",
+        ]
+
+        TAGLINE = "  Personal AI Assistant — Infinite Memory"
+        BUILT = "  Built with Orcha  ·  orcha.nl"
+
+        self.console.print()
+
+        # Animate logo line by line
+        for line in LOGO:
+            self.console.print(f"  [bold green]{line}[/bold green]")
+            _time.sleep(0.05)
+
+        self.console.print()
+        self.console.print(f"[dim]{TAGLINE}[/dim]")
+        self.console.print(f"[dim cyan]{BUILT}[/dim cyan]")
+        self.console.print()
+
         model = self.orchestrator.agent.config.provider.model
-        self.console.print(f"  [info]Model: {model}[/info]")
+        plugins = len(self.orchestrator.agent.plugins.plugins)
+        tools = len(self.orchestrator.agent.plugins.all_tools())
+        self.console.print(f"  [dim]Model:[/dim] [bold]{model}[/bold]")
+        self.console.print(f"  [dim]Plugins:[/dim] {plugins}  [dim]Tools:[/dim] {tools}")
+        self.console.print(f"  [dim]Type [bold]/help[/bold] for commands[/dim]")
+        self.console.print()

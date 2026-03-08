@@ -158,19 +158,18 @@ class SemanticChunker(ChunkingStrategy):
         import numpy as np
 
         # Get embeddings for each sentence
+        # Use a new event loop in a separate thread to avoid nested asyncio.run()
+        import concurrent.futures
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # We're in an async context, create a future
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    embeddings = pool.submit(
-                        lambda: asyncio.run(self._embedder.embed(sentences))
-                    ).result()
-            else:
-                embeddings = loop.run_until_complete(self._embedder.embed(sentences))
-        except RuntimeError:
-            embeddings = asyncio.run(self._embedder.embed(sentences))
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                embeddings = pool.submit(
+                    lambda: asyncio.new_event_loop().run_until_complete(
+                        self._embedder.embed(sentences)
+                    )
+                ).result(timeout=30)
+        except Exception:
+            logger.warning("Semantic chunking failed, falling back to paragraph chunking")
+            return self._paragraph_chunk(text, sentences)
 
         # Compute cosine similarity between consecutive sentences
         similarities = []

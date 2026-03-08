@@ -360,20 +360,10 @@ class MemoryManager:
 
             query = user_messages[-1]
 
-            # Run async search in sync context
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # We're already in an async context
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                        results = pool.submit(
-                            lambda: asyncio.run(manager.search(query, top_k=5))
-                        ).result(timeout=5)
-                else:
-                    results = loop.run_until_complete(manager.search(query, top_k=5))
-            except Exception:
-                logger.debug("Memory context injection failed", exc_info=True)
+            # Use cached results — async search is scheduled separately
+            # to avoid nested asyncio.run() which causes bus errors on macOS
+            results = getattr(manager, '_last_injector_results', None)
+            if results is None:
                 return {}
 
             if not results:

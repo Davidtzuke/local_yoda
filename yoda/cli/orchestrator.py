@@ -139,9 +139,14 @@ class Orchestrator:
             logger.debug("Knowledge graph plugin registered (context via tools)")
 
     def _register_signals(self) -> None:
-        """Register OS signal handlers for graceful shutdown."""
+        """Register OS signal handlers for graceful shutdown.
+
+        NOTE: We only handle SIGTERM here. SIGINT (Ctrl+C) is left to Python's
+        default handler so that ``KeyboardInterrupt`` propagates naturally and
+        the CLI loop (which already catches it) can break out immediately.
+        """
         loop = asyncio.get_event_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
+        for sig in (signal.SIGTERM,):
             try:
                 loop.add_signal_handler(sig, self._signal_handler)
             except NotImplementedError:
