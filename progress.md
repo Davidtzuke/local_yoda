@@ -253,6 +253,102 @@
 - Config: `YodaConfig.tokens` (max_context_tokens, compression_enabled, sliding_window_size, cost_tracking)
 - All persistence in `YodaConfig.data_dir` (cache.db, cost_log.json)
 
-## Tool & Computer Access — ⏳ PENDING
+## Tool & Computer Access — ✅ COMPLETE
+
+**Status**: Done
+**Branch**: main
+
+### Delivered
+
+- [x] **yoda/tools/registry.py** — Decorator-based tool registry:
+  - `@tool` decorator with auto JSON schema generation from type hints + docstrings
+  - `ToolPermission` enum (SAFE, READ, WRITE, EXECUTE, DANGEROUS, COMPUTER)
+  - `RateLimiter` — token-bucket per-tool rate limiting (calls/minute)
+  - `ToolMetadata` — name, description, permission, rate_limit, tags, timeout, retries, category
+  - `ToolRegistry` class: register functions, collect decorated, register from MCP schemas
+  - Execution stats tracking (calls, errors, total_time)
+  - Filter by category, permission level
+
+- [x] **yoda/tools/executor.py** — Tool execution engine:
+  - `ToolExecutor` with parallel execution via asyncio.Semaphore
+  - `ApprovalPolicy` enum (ALWAYS_ALLOW, REQUIRE_DANGEROUS, REQUIRE_WRITE, REQUIRE_ALL)
+  - Configurable `ApprovalCallback` for user approval flow
+  - Automatic retry with exponential backoff
+  - Timeout via asyncio.wait_for
+  - Rate limit checking before execution
+  - `execute_parallel()` for concurrent tool calls
+  - `execute_chain()` for sequential with output piping
+
+- [x] **yoda/tools/builtins/file_ops.py** — File operation tools:
+  - read_file, write_file, list_directory, search_files, copy_file, move_file, delete_file, file_info
+  - Permission-gated (read vs write vs dangerous)
+  - Approval required for write/delete operations
+
+- [x] **yoda/tools/builtins/shell.py** — Shell execution tools:
+  - run_command, run_python, get_env
+  - Blocklist for destructive commands (rm -rf /, mkfs, etc.)
+  - Dangerous pattern detection (sudo, chmod 777, etc.)
+  - Output truncation for large results
+
+- [x] **yoda/tools/builtins/web.py** — Web tools:
+  - http_request (GET/POST/PUT/DELETE/PATCH with headers)
+  - fetch_webpage (HTML to text extraction)
+  - extract_links (URL extraction from HTML)
+  - download_file (with approval)
+  - Built-in HTML-to-text converter
+
+- [x] **yoda/tools/builtins/calendar_tool.py** — Calendar tools:
+  - calendar_add, calendar_list, calendar_delete, calendar_search
+  - SQLite WAL persistence
+  - ISO datetime handling, tag support
+
+- [x] **yoda/tools/builtins/notes.py** — Notes tools:
+  - note_create, note_read, note_list, note_search, note_update, note_delete
+  - SQLite WAL persistence
+  - Tag filtering, pinning, full-text search
+
+- [x] **yoda/tools/mcp_client.py** — MCP protocol client:
+  - `StdioTransport` — subprocess stdin/stdout JSON-RPC communication
+  - `SSETransport` — HTTP POST JSON-RPC communication
+  - `MCPConnection` — single server connection with tool discovery
+  - `MCPClient` — multi-server manager with tool routing
+  - Auto-discovery via `tools/list` MCP method
+  - MCP schema → Yoda ToolParameter conversion
+  - Qualified tool naming (server__tool) to avoid collisions
+
+- [x] **yoda/tools/computer/screen.py** — Screen tools:
+  - screenshot (full/region, save or base64)
+  - screen_ocr (pytesseract or easyocr fallback)
+  - screen_info, locate_on_screen
+
+- [x] **yoda/tools/computer/input_control.py** — Input tools:
+  - mouse_click, mouse_move, mouse_drag, mouse_scroll, mouse_position
+  - keyboard_type, keyboard_hotkey, keyboard_press
+  - pyautogui FAILSAFE enabled, approval required for clicks/typing
+
+- [x] **yoda/tools/computer/app_launcher.py** — App & system tools:
+  - open_application (macOS/Linux/Windows), open_url
+  - list_processes, clipboard_read, clipboard_write
+  - Cross-platform with native fallbacks
+
+- [x] **yoda/tools/plugin.py** — Agent plugin integration:
+  - `ToolAccessPlugin` as drop-in Plugin subclass
+  - Auto-loads built-in + computer tools via decorators
+  - Reads `~/.yoda/mcp_servers.json` for MCP server configs
+  - Proxies MCP tools through Yoda's registry
+  - Stats API, approval callback setter
+
+- [x] **pyproject.toml** — Added optional deps: pyautogui, Pillow, pytesseract, pyperclip, easyocr
+
+### Interfaces for Downstream
+
+**Integration Architect**:
+- `ToolAccessPlugin` is a drop-in Plugin subclass for `PluginRegistry`
+- All tools auto-register via `@tool` decorator on import
+- MCP servers configured via `~/.yoda/mcp_servers.json`
+- `ToolExecutor` supports approval callbacks for CLI integration
+- `MCPClient` can be extended to serve Yoda as an MCP server
+- Computer tools are optional (graceful ImportError handling)
+- Config: optional deps `[computer]` and `[ocr]` in pyproject.toml
 
 ## Integration Architect — ⏳ PENDING

@@ -39,6 +39,15 @@ local = [
 faiss = [
     "faiss-cpu>=1.8,<2",
 ]
+computer = [
+    "pyautogui>=0.9,<1",
+    "Pillow>=10.0,<12",
+    "pytesseract>=0.3,<1",
+    "pyperclip>=1.8,<2",
+]
+ocr = [
+    "easyocr>=1.7,<2",
+]
 
 [project.scripts]
 yoda = "yoda.cli:main"
