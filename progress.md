@@ -135,7 +135,70 @@
 - Config: `YodaConfig.memory` (backend, persist_dir, embedding_model, top_k, chunk_size, chunk_overlap)
 - All async-first, export/import via manager methods
 
-## Knowledge Graph Builder — ⏳ PENDING
+## Knowledge Graph Builder — ✅ COMPLETE
+
+**Status**: Done
+**Branch**: main
+
+### Delivered
+
+- [x] **yoda/knowledge/graph.py** — NetworkX-based knowledge graph with SQLite persistence:
+  - `Entity` and `Relationship` dataclasses with temporal validity, confidence, aliases
+  - `KnowledgeGraph` class: CRUD for entities/relationships, neighbor traversal, shortest path, subgraph extraction
+  - SQLite WAL persistence with indexes, JSON import/export
+  - Automatic duplicate detection and entity merging by name
+
+- [x] **yoda/knowledge/extractor.py** — Entity and relationship extraction:
+  - Regex-based NER patterns for people, locations, organizations, relations
+  - LLM-powered extraction with structured JSON output
+  - Coreference resolution (pronoun → entity mapping)
+  - Pattern + LLM result merging with confidence scoring
+
+- [x] **yoda/knowledge/queries.py** — Natural language graph queries:
+  - Pattern-based query matching ("What is X?", "Where does X work?", "How is X related to Y?")
+  - Entity search fallback with fuzzy matching
+  - Temporal queries (valid_at, date range filtering)
+  - LLM-based query planning for complex questions
+  - `QueryResult` with text and context formatting
+
+- [x] **yoda/knowledge/reasoning.py** — Multi-hop reasoning engine:
+  - Multi-hop traversal with inference chain tracking
+  - Transitive inference (part_of, located_in, is_a)
+  - Contradiction detection for exclusive relations (lives_in, works_at)
+  - Confidence propagation (geometric mean across chain)
+  - Missing link suggestion based on structural patterns
+
+- [x] **yoda/knowledge/updater.py** — Auto-update and maintenance:
+  - `process_message()` — auto-extract entities/rels from conversations
+  - Duplicate merging with trigram Jaccard similarity
+  - Temporal decay (90-day half-life) with stale relationship pruning
+  - Relationship reinforcement on re-mention
+  - Orphan entity cleanup
+  - `run_maintenance()` — full maintenance cycle
+
+- [x] **yoda/knowledge/visualization.py** — Graph visualization:
+  - D3.js force-directed JSON export with colors/shapes per type
+  - Mermaid flowchart generation with typed node shapes and classDef styling
+  - ASCII tree visualization centered on entity
+  - Interactive HTML export with embedded D3.js
+  - Entity type color scheme and icons
+
+- [x] **yoda/knowledge/plugin.py** — Agent plugin integration:
+  - Tools: kg_query, kg_add_entity, kg_add_relation, kg_reason, kg_visualize, kg_stats
+  - Auto entity extraction via `on_user_message` hook
+  - Context injector for knowledge graph context in LLM calls
+  - Auto-creates entities when adding relations to unknown names
+
+- [x] **pyproject.toml** — Added: networkx>=3.2
+
+### Interfaces for Downstream
+
+**Integration Architect**:
+- `KnowledgeGraphPlugin` is a drop-in Plugin subclass for `PluginRegistry`
+- `KnowledgeGraphPlugin.get_context_injector()` → `agent.add_context_injector()`
+- Config: `YodaConfig.knowledge_graph` (backend, persist_path, max_hops)
+- All async-first, export/import via graph methods
+- Visualization: `GraphVisualizer.export_html()` for interactive graph view
 
 ## Token Optimizer — ⏳ PENDING
 

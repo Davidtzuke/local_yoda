@@ -23,6 +23,7 @@ dependencies = [
     "chromadb>=0.5,<1",
     "sentence-transformers>=3.0,<4",
     "numpy>=1.26,<3",
+    "networkx>=3.2,<4",
 ]
 
 [project.optional-dependencies]
