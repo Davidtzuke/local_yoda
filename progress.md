@@ -200,7 +200,58 @@
 - All async-first, export/import via graph methods
 - Visualization: `GraphVisualizer.export_html()` for interactive graph view
 
-## Token Optimizer — ⏳ PENDING
+## Token Optimizer — ✅ COMPLETE
+
+**Status**: Done
+**Branch**: main
+
+### Delivered
+
+- [x] **yoda/optimization/tokens.py** — Per-model token counting:
+  - `TokenCounter` with tiktoken accurate counting + heuristic fallback
+  - `ModelTokenProfile` with context/output limits, encoding info
+  - Pre-configured profiles for Claude, GPT-4/4o/3.5, local models
+  - Budget tracking: consume, remaining, utilization, compression threshold
+  - Fuzzy model matching, LRU-cached encoders
+
+- [x] **yoda/optimization/compressor.py** — Multi-strategy context compression:
+  - Progressive 4-strategy compression (trim tools → drop tool pairs → truncate → summarize)
+  - Aggressive fallback: front-drop while preserving system + recent messages
+  - `CompressionResult` with ratio/tokens-saved metrics
+  - Configurable preserve_last_n for recent message protection
+
+- [x] **yoda/optimization/prompt.py** — Dynamic prompt optimization:
+  - `PromptTemplate` with variable substitution and token-count caching
+  - `ContextSection` with priority scoring and relevance functions
+  - `PromptOptimizer`: budget-aware system prompt builder with relevance-gated injection
+
+- [x] **yoda/optimization/window.py** — Priority-queue sliding window:
+  - `SlidingWindow` with importance-weighted eviction (score = priority × recency × importance)
+  - Pinning support, auto-eviction, `get_messages_within_budget()` for priority selection
+
+- [x] **yoda/optimization/cache.py** — Semantic response caching:
+  - SQLite WAL-backed persistent cache with exact (SHA-256) and fuzzy (trigram Jaccard) matching
+  - TTL expiration, hit counting, LRU eviction, token savings tracking
+
+- [x] **yoda/optimization/cost.py** — Per-model cost tracking:
+  - `ModelPricing` for Claude/GPT/local models with input/output/cached pricing
+  - `CostTracker` with JSON persistence, time-windowed reports, model breakdown
+  - `BudgetAlert` with period-based thresholds and callbacks
+
+- [x] **yoda/optimization/plugin.py** — Agent plugin integration:
+  - Tools: token_count, token_budget, cost_report, cache_stats, set_budget_alert
+  - Hooks: on_user_message (cache lookup), on_assistant_response (cache + cost), on_context_build (budget warnings)
+  - `get_context_injector()`, `compress_messages()`, `track_usage()` public API
+
+### Interfaces for Downstream
+
+**Integration Architect**:
+- `TokenOptimizerPlugin` is a drop-in Plugin subclass for `PluginRegistry`
+- `TokenOptimizerPlugin.get_context_injector()` → `agent.add_context_injector()`
+- `TokenOptimizerPlugin.compress_messages(messages)` can wrap agent's `_prepare_messages()`
+- `TokenOptimizerPlugin.track_usage(input, output)` hooks into agent's `_track_usage()`
+- Config: `YodaConfig.tokens` (max_context_tokens, compression_enabled, sliding_window_size, cost_tracking)
+- All persistence in `YodaConfig.data_dir` (cache.db, cost_log.json)
 
 ## Tool & Computer Access — ⏳ PENDING
 
