@@ -24,6 +24,7 @@ dependencies = [
     "sentence-transformers>=3.0,<4",
     "numpy>=1.26,<3",
     "networkx>=3.2,<4",
+    "aiohttp>=3.9,<4",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +52,7 @@ ocr = [
 
 [project.scripts]
 yoda = "yoda.cli:main"
+yoda-mcp = "yoda.cli:main"
 
 [tool.ruff]
 target-version = "py312"

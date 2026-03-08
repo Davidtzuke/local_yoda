@@ -351,4 +351,60 @@
 - Computer tools are optional (graceful ImportError handling)
 - Config: optional deps `[computer]` and `[ocr]` in pyproject.toml
 
-## Integration Architect — ⏳ PENDING
+## Integration Architect — ✅ COMPLETE
+
+**Status**: Done
+**Branch**: main
+
+### Delivered
+
+- [x] **yoda/cli/app.py** — Rich terminal UI:
+  - Streaming markdown rendering with Rich panels
+  - Slash command registry (/help /remember /forget /search /graph /status /cost /reset /claude /quit)
+  - Token usage display inline after each response
+  - Graceful shutdown on Ctrl+C
+
+- [x] **yoda/cli/orchestrator.py** — Component wiring:
+  - Correct init order: config → agent → register plugins → initialize → wire injectors → signals
+  - Core plugin registration (token_optimizer, memory, knowledge_graph, tool_access)
+  - Context injector wiring from plugins
+  - Graceful shutdown in reverse order with background task cancellation
+
+- [x] **yoda/cli/claude_gen.py** — CLAUDE.md generator:
+  - Auto-generates from knowledge graph entities + memory preferences
+  - Extracts coding conventions, tool preferences, key entities
+  - Template fallback when no data stored yet
+
+- [x] **yoda/mcp_server/server.py** — MCP server (SSE + stdio):
+  - JSON-RPC 2.0 protocol implementation
+  - SSE transport via aiohttp (initialize, tools/list, tools/call, ping)
+  - Stdio transport for Claude Code integration
+  - Tools: remember, recall, graph_query, get_preferences
+  - Health check endpoint
+
+- [x] **yoda/mcp_server/transport.py** — SSE utilities:
+  - SSE event formatting, endpoint events
+  - ConnectionManager with heartbeat keepalive
+
+- [x] **yoda/cli.py** — Updated CLI entry point:
+  - Routes to Rich CLI or MCP server mode
+  - Flags: --mcp, --mcp-stdio, --port, --host
+
+- [x] **Dockerfile + docker-compose.yml** — Docker deployment:
+  - Multi-stage build, data volume, env var config
+  - Separate profiles for CLI and MCP server
+
+- [x] **tests/test_integration.py** — 21 integration tests:
+  - Config, messages, plugin lifecycle, orchestrator, MCP server, SSE transport, CLAUDE.md gen, slash commands, connection manager
+  - 20 passed, 1 skipped (env dep)
+
+- [x] **README.md** — Full documentation with ASCII architecture diagram
+
+- [x] **pyproject.toml** — Added aiohttp dependency, yoda-mcp script entry
+
+### Interfaces
+
+- CLI: `yoda` command runs Rich terminal UI
+- MCP SSE: `yoda --mcp --port 8765` exposes SSE server
+- MCP stdio: `yoda --mcp-stdio` for Claude Code integration
+- Docker: `docker compose up yoda` or `--profile mcp`

@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  yoda:
+    build: .
+    container_name: yoda
+    stdin_open: true
+    tty: true
+    volumes:
+      - yoda-data:/root/.yoda
+      - .:/app
+    environment:
+      - YODA_PROVIDER_NAME=${YODA_PROVIDER_NAME:-anthropic}
+      - YODA_PROVIDER_MODEL=${YODA_PROVIDER_MODEL:-claude-sonnet-4-20250514}
+      - YODA_PROVIDER_API_KEY=${YODA_PROVIDER_API_KEY:-}
+      - YODA_DEBUG=${YODA_DEBUG:-false}
+    ports:
+      - "8765:8765"
+
+  yoda-mcp:
+    build: .
+    container_name: yoda-mcp
+    command: ["python", "-m", "yoda.cli", "--mcp", "--port", "8765"]
+    volumes:
+      - yoda-data:/root/.yoda
+    environment:
+      - YODA_PROVIDER_NAME=${YODA_PROVIDER_NAME:-anthropic}
+      - YODA_PROVIDER_MODEL=${YODA_PROVIDER_MODEL:-claude-sonnet-4-20250514}
+      - YODA_PROVIDER_API_KEY=${YODA_PROVIDER_API_KEY:-}
+    ports:
+      - "8765:8765"
+    profiles:
+      - mcp
+
+volumes:
+  yoda-data:
